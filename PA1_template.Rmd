@@ -1,25 +1,206 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
+author: "Lamarr"
+date: "`r Sys.Date()`"
   html_document:
     keep_md: true
 ---
 
+## Preparation
+
+```{r setup, echo=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(tidyr)
+```
 
 ## Loading and preprocessing the data
+```{r, echo=TRUE}
+data_file <- "activity.csv"
 
+if (!file.exists(data_file)) {
+  unzip("activity.zip") 
+}
+```
 
+Load the data; Process/transform the data (if necessary) into a format suitable for your analysis
+```{r, echo=TRUE}
+raw_df <- tibble(read.csv(data_file)) %>%
+  mutate(
+    date=ymd(date),
+    steps = as.numeric(steps),
+  )
+
+df <- raw_df %>%
+  filter(steps != "NA") %>%
+  print
+```
 
 ## What is mean total number of steps taken per day?
 
+Calculate the total number of steps taken per day
+```{r, echo=TRUE}
+steps_df <- df %>%
+  group_by(date) %>%
+  summarise(
+    total_steps = sum(steps),
+    mean_steps = mean(steps),
+    median_steps = median(steps)
+  ) %>%
+  print
+```
 
+Make a histogram of the total number of steps taken each day
+```{r, echo=TRUE}
+ggplot() + 
+  geom_histogram(
+    stat="identity",
+    data=df,
+    aes(
+      x=date,
+      y=steps,
+    )
+  )
+```
+
+Calculate and report the mean and median of the total number of steps taken per day
+```{r, echo=TRUE}
+ggplot(
+  data=steps_df,
+  aes(
+      x=date,
+      y=mean_steps,
+      color="mean"
+  )
+) + 
+  geom_point() +
+  geom_line() +
+  geom_point(aes(y=median_steps, color="median")) +
+  geom_line(aes(y=median_steps, color="median"))
+```
 
 ## What is the average daily activity pattern?
 
+Make a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
+```{r, echo=TRUE}
+interval_df <- df %>%
+  group_by(interval) %>%
+  summarise(avg_steps=mean(steps)) %>%
+  print
+```
+
+```{r, echo=TRUE}
+ggplot(
+  data=interval_df,
+) + 
+  geom_histogram(
+    stat="identity",
+    aes(
+      x=interval,
+      y=avg_steps,
+    )
+  )
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r, echo=TRUE}
+interval_df %>%
+  filter(avg_steps==max(avg_steps)) %>%
+  select(interval)
+```
 
 ## Imputing missing values
 
+Calculate and report the total number of missing values in the dataset
+```{r, echo=TRUE}
+raw_df %>%
+  filter(is.na(steps)) %>%
+  dim
+```
 
+```{r, echo=TRUE}
+imputed_df <- raw_df %>%
+  mutate(across(steps, ~replace_na(., mean(., na.rm=TRUE)))) %>%
+  print
+```
+
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r, echo=TRUE}
+imputed_steps_df <- imputed_df %>%
+  group_by(date) %>%
+  summarise(
+    total_steps = sum(steps),
+    mean_steps = mean(steps),
+    median_steps = median(steps)
+  ) %>%
+  print
+```
+
+```{r, echo=TRUE}
+ggplot() + 
+  geom_histogram(
+    stat="identity",
+    data=imputed_df,
+    aes(
+      x=date,
+      y=steps,
+    )
+  )
+```
+
+```{r, echo=TRUE}
+ggplot(
+  data=imputed_steps_df,
+  aes(
+      x=date,
+      y=mean_steps,
+      color="mean"
+  )
+) + 
+  geom_point() +
+  geom_line() +
+  geom_point(aes(y=median_steps, color="median")) +
+  geom_line(aes(y=median_steps, color="median"))
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r, echo=TRUE}
+imputed_interval_df <- imputed_df %>%
+  mutate(weekend = wday(date, week_start=1) > 5) %>%
+  group_by(interval, weekend) %>%
+  summarise(avg_steps=mean(steps)) %>%
+  print
+```
+
+```{r, echo=TRUE}
+ggplot(
+  data=imputed_interval_df,
+) + 
+  geom_histogram(
+    stat="identity",
+    aes(
+      x=interval,
+      y=avg_steps,
+    )
+  ) + facet_grid(.~weekend)
+```
+
+```{r, echo=TRUE}
+ggplot(
+  data=imputed_interval_df,
+) + 
+  geom_histogram(
+    stat="identity",
+    aes(
+      x=interval,
+      y=avg_steps,
+      color=weekend
+    )
+  )
+```
